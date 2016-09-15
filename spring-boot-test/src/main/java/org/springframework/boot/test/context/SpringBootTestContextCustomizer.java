@@ -22,8 +22,10 @@ import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.boot.context.embedded.AbstractConfigurableEmbeddedServletContainer;
 import org.springframework.boot.test.web.client.LocalHostUriTemplateHandler;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.client.TestRestTemplate.HttpClientOption;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -78,10 +80,14 @@ class SpringBootTestContextCustomizer implements ContextCustomizer {
 	}
 
 	/**
-	 * {@link FactoryBean} used to create a configure a {@link TestRestTemplate}.
+	 * {@link FactoryBean} used to create and configure a {@link TestRestTemplate}.
 	 */
 	public static class TestRestTemplateFactory
 			implements FactoryBean<TestRestTemplate>, ApplicationContextAware {
+
+		private static final HttpClientOption[] DEFAULT_OPTIONS = {};
+
+		private static final HttpClientOption[] SSL_OPTIONS = { HttpClientOption.SSL };
 
 		private TestRestTemplate object;
 
@@ -89,10 +95,24 @@ class SpringBootTestContextCustomizer implements ContextCustomizer {
 		public void setApplicationContext(ApplicationContext applicationContext)
 				throws BeansException {
 			RestTemplateBuilder builder = getRestTemplateBuilder(applicationContext);
-			TestRestTemplate template = new TestRestTemplate(builder.build());
-			template.setUriTemplateHandler(
-					new LocalHostUriTemplateHandler(applicationContext.getEnvironment()));
+			boolean sslEnabled = isSslEnabled(applicationContext);
+			TestRestTemplate template = new TestRestTemplate(builder.build(), null, null,
+					sslEnabled ? SSL_OPTIONS : DEFAULT_OPTIONS);
+			LocalHostUriTemplateHandler handler = new LocalHostUriTemplateHandler(
+					applicationContext.getEnvironment(), sslEnabled ? "https" : "http");
+			template.setUriTemplateHandler(handler);
 			this.object = template;
+		}
+
+		private boolean isSslEnabled(ApplicationContext context) {
+			try {
+				AbstractConfigurableEmbeddedServletContainer container = context
+						.getBean(AbstractConfigurableEmbeddedServletContainer.class);
+				return container.getSsl() != null && container.getSsl().isEnabled();
+			}
+			catch (NoSuchBeanDefinitionException ex) {
+				return false;
+			}
 		}
 
 		private RestTemplateBuilder getRestTemplateBuilder(

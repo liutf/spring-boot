@@ -23,6 +23,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.test.autoconfigure.OverrideAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.core.AutoConfigureCache;
@@ -42,7 +43,7 @@ import org.springframework.web.client.RestTemplate;
  * <strong>only</strong> on beans that use {@link RestTemplateBuilder}.
  * <p>
  * Using this annotation will disable full auto-configuration and instead apply only
- * configuration relevant to rest client tests (i.e. Jackson or GSON auto-configureation
+ * configuration relevant to rest client tests (i.e. Jackson or GSON auto-configuration
  * and {@code @JsonComponent} beans, but not regular {@link Component @Component} beans).
  * <p>
  * By default, tests annotated with {@code RestClientTest} will also auto-configure a
@@ -68,6 +69,7 @@ import org.springframework.web.client.RestTemplate;
 @AutoConfigureCache
 @AutoConfigureWebClient
 @AutoConfigureMockRestServiceServer
+@ImportAutoConfiguration
 public @interface RestClientTest {
 
 	/**

@@ -32,6 +32,7 @@ import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionMessage;
 import org.springframework.boot.autoconfigure.condition.ConditionOutcome;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -166,6 +167,8 @@ public class ErrorMvcAutoConfiguration {
 		@Override
 		public ConditionOutcome getMatchOutcome(ConditionContext context,
 				AnnotatedTypeMetadata metadata) {
+			ConditionMessage.Builder message = ConditionMessage
+					.forCondition("ErrorTemplate Missing");
 			TemplateAvailabilityProviders providers = new TemplateAvailabilityProviders(
 					context.getClassLoader());
 			TemplateAvailabilityProvider provider = providers.getProvider("error",
@@ -173,9 +176,10 @@ public class ErrorMvcAutoConfiguration {
 					context.getResourceLoader());
 			if (provider != null) {
 				return ConditionOutcome
-						.noMatch("Template from " + provider + " found for error view");
+						.noMatch(message.foundExactly("template from " + provider));
 			}
-			return ConditionOutcome.match("No error template view detected");
+			return ConditionOutcome
+					.match(message.didNotFind("error template view").atAll());
 		}
 
 	}
@@ -189,14 +193,11 @@ public class ErrorMvcAutoConfiguration {
 
 		private final String template;
 
-		private final Map<String, Expression> expressions;
+		private volatile Map<String, Expression> expressions;
 
 		SpelView(String template) {
 			this.helper = new NonRecursivePropertyPlaceholderHelper("${", "}");
 			this.template = template;
-			ExpressionCollector expressionCollector = new ExpressionCollector();
-			this.helper.replacePlaceholders(this.template, expressionCollector);
-			this.expressions = expressionCollector.getExpressions();
 		}
 
 		@Override
@@ -212,9 +213,20 @@ public class ErrorMvcAutoConfiguration {
 			}
 			Map<String, Object> map = new HashMap<String, Object>(model);
 			map.put("path", request.getContextPath());
-			PlaceholderResolver resolver = new ExpressionResolver(this.expressions, map);
+			PlaceholderResolver resolver = new ExpressionResolver(getExpressions(), map);
 			String result = this.helper.replacePlaceholders(this.template, resolver);
 			response.getWriter().append(result);
+		}
+
+		private Map<String, Expression> getExpressions() {
+			if (this.expressions == null) {
+				synchronized (this) {
+					ExpressionCollector expressionCollector = new ExpressionCollector();
+					this.helper.replacePlaceholders(this.template, expressionCollector);
+					this.expressions = expressionCollector.getExpressions();
+				}
+			}
+			return this.expressions;
 		}
 
 	}

@@ -19,6 +19,7 @@ package org.springframework.boot.autoconfigure.security.oauth2.client;
 import javax.annotation.Resource;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionMessage;
 import org.springframework.boot.autoconfigure.condition.ConditionOutcome;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -35,6 +36,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
@@ -47,7 +49,6 @@ import org.springframework.security.oauth2.client.filter.OAuth2ClientContextFilt
 import org.springframework.security.oauth2.client.token.AccessTokenRequest;
 import org.springframework.security.oauth2.client.token.DefaultAccessTokenRequest;
 import org.springframework.security.oauth2.client.token.grant.client.ClientCredentialsResourceDetails;
-import org.springframework.security.oauth2.client.token.grant.code.AuthorizationCodeResourceDetails;
 import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableOAuth2Client;
 import org.springframework.security.oauth2.config.annotation.web.configuration.OAuth2ClientConfiguration;
@@ -88,15 +89,8 @@ public class OAuth2RestOperationsConfiguration {
 	@Configuration
 	@ConditionalOnBean(OAuth2ClientConfiguration.class)
 	@ConditionalOnWebApplication
+	@Import(OAuth2ProtectedResourceDetailsConfiguration.class)
 	protected static class SessionScopedConfiguration {
-
-		@Bean
-		@ConfigurationProperties("security.oauth2.client")
-		@Primary
-		public AuthorizationCodeResourceDetails oauth2RemoteResource() {
-			AuthorizationCodeResourceDetails details = new AuthorizationCodeResourceDetails();
-			return details;
-		}
 
 		@Bean
 		public FilterRegistrationBean oauth2ClientFilterRegistration(
@@ -133,15 +127,8 @@ public class OAuth2RestOperationsConfiguration {
 	@Configuration
 	@ConditionalOnMissingBean(OAuth2ClientConfiguration.class)
 	@ConditionalOnWebApplication
+	@Import(OAuth2ProtectedResourceDetailsConfiguration.class)
 	protected static class RequestScopedConfiguration {
-
-		@Bean
-		@ConfigurationProperties("security.oauth2.client")
-		@Primary
-		public AuthorizationCodeResourceDetails oauth2RemoteResource() {
-			AuthorizationCodeResourceDetails details = new AuthorizationCodeResourceDetails();
-			return details;
-		}
 
 		@Bean
 		@Scope(value = "request", proxyMode = ScopedProxyMode.INTERFACES)
@@ -175,8 +162,14 @@ public class OAuth2RestOperationsConfiguration {
 			PropertyResolver resolver = new RelaxedPropertyResolver(
 					context.getEnvironment(), "security.oauth2.client.");
 			String clientId = resolver.getProperty("client-id");
-			return new ConditionOutcome(StringUtils.hasLength(clientId),
-					"Non empty security.oauth2.client.client-id");
+			ConditionMessage.Builder message = ConditionMessage
+					.forCondition("OAuth Client ID");
+			if (StringUtils.hasLength(clientId)) {
+				return ConditionOutcome.match(message
+						.foundExactly("security.oauth2.client.client-id property"));
+			}
+			return ConditionOutcome.match(message
+					.didNotFind("security.oauth2.client.client-id property").atAll());
 		}
 
 	}

@@ -712,11 +712,12 @@ public class ConfigFileApplicationListenerTests {
 		SpringApplication application = new SpringApplication(Config.class);
 		application.setWebEnvironment(false);
 		this.context = application.run("--spring.profiles.active=includeprofile");
-		assertThat(this.context.getEnvironment()).has(matchingProfile("includeprofile"));
-		assertThat(this.context.getEnvironment()).has(matchingProfile("specific"));
-		assertThat(this.context.getEnvironment()).has(matchingProfile("morespecific"));
-		assertThat(this.context.getEnvironment()).has(matchingProfile("yetmorespecific"));
-		assertThat(this.context.getEnvironment()).doesNotHave(matchingProfile("missing"));
+		ConfigurableEnvironment environment = this.context.getEnvironment();
+		assertThat(environment).has(matchingProfile("includeprofile"));
+		assertThat(environment).has(matchingProfile("specific"));
+		assertThat(environment).has(matchingProfile("morespecific"));
+		assertThat(environment).has(matchingProfile("yetmorespecific"));
+		assertThat(environment).doesNotHave(matchingProfile("missing"));
 	}
 
 	@Test
@@ -791,6 +792,42 @@ public class ConfigFileApplicationListenerTests {
 		this.initializer.postProcessEnvironment(this.environment, this.application);
 		String property = this.environment.getProperty("the.property");
 		assertThat(property).isEqualTo("frompropertiesfile");
+	}
+
+	@Test
+	public void customDefaultProfile() throws Exception {
+		SpringApplication application = new SpringApplication(Config.class);
+		application.setWebEnvironment(false);
+		this.context = application.run("--spring.profiles.default=customdefault");
+		String property = this.context.getEnvironment().getProperty("customdefault");
+		assertThat(property).isEqualTo("true");
+	}
+
+	@Test
+	public void customDefaultProfileAndActive() throws Exception {
+		SpringApplication application = new SpringApplication(Config.class);
+		application.setWebEnvironment(false);
+		this.context = application.run("--spring.profiles.default=customdefault",
+				"--spring.profiles.active=dev");
+		String property = this.context.getEnvironment().getProperty("my.property");
+		assertThat(property).isEqualTo("fromdevpropertiesfile");
+		assertThat(this.context.getEnvironment().containsProperty("customdefault"))
+				.isFalse();
+	}
+
+	@Test
+	public void customDefaultProfileAndActiveFromFile() throws Exception {
+		// gh-5998
+		SpringApplication application = new SpringApplication(Config.class);
+		application.setWebEnvironment(false);
+		this.context = application.run("--spring.config.name=customprofile",
+				"--spring.profiles.default=customdefault");
+		ConfigurableEnvironment environment = this.context.getEnvironment();
+		assertThat(environment.containsProperty("customprofile")).isTrue();
+		assertThat(environment.containsProperty("customprofile-specific")).isTrue();
+		assertThat(environment.containsProperty("customprofile-customdefault")).isTrue();
+		assertThat(environment.acceptsProfiles("customdefault"))
+				.isTrue();
 	}
 
 	private Condition<ConfigurableEnvironment> matchingPropertySource(

@@ -31,11 +31,13 @@ import org.springframework.boot.actuate.endpoint.mvc.EndpointHandlerMapping;
 import org.springframework.boot.actuate.endpoint.mvc.EndpointHandlerMappingCustomizer;
 import org.springframework.boot.actuate.endpoint.mvc.EnvironmentMvcEndpoint;
 import org.springframework.boot.actuate.endpoint.mvc.HealthMvcEndpoint;
+import org.springframework.boot.actuate.endpoint.mvc.HeapdumpMvcEndpoint;
 import org.springframework.boot.actuate.endpoint.mvc.LogFileMvcEndpoint;
 import org.springframework.boot.actuate.endpoint.mvc.MetricsMvcEndpoint;
 import org.springframework.boot.actuate.endpoint.mvc.MvcEndpoint;
 import org.springframework.boot.actuate.endpoint.mvc.MvcEndpoints;
 import org.springframework.boot.actuate.endpoint.mvc.ShutdownMvcEndpoint;
+import org.springframework.boot.autoconfigure.condition.ConditionMessage;
 import org.springframework.boot.autoconfigure.condition.ConditionOutcome;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -133,6 +135,13 @@ public class EndpointWebMvcManagementContextConfiguration {
 	}
 
 	@Bean
+	@ConditionalOnMissingBean
+	@ConditionalOnEnabledEndpoint("heapdump")
+	public HeapdumpMvcEndpoint heapdumpMvcEndpoint() {
+		return new HeapdumpMvcEndpoint();
+	}
+
+	@Bean
 	@ConditionalOnBean(HealthEndpoint.class)
 	@ConditionalOnEnabledEndpoint("health")
 	public HealthMvcEndpoint healthMvcEndpoint(HealthEndpoint delegate) {
@@ -174,20 +183,22 @@ public class EndpointWebMvcManagementContextConfiguration {
 				AnnotatedTypeMetadata metadata) {
 			Environment environment = context.getEnvironment();
 			String config = environment.resolvePlaceholders("${logging.file:}");
+			ConditionMessage.Builder message = ConditionMessage
+					.forCondition("Log File");
 			if (StringUtils.hasText(config)) {
-				return ConditionOutcome.match("Found logging.file: " + config);
+				return ConditionOutcome.match(message.found("logging.file").items(config));
 			}
 			config = environment.resolvePlaceholders("${logging.path:}");
 			if (StringUtils.hasText(config)) {
-				return ConditionOutcome.match("Found logging.path: " + config);
+				return ConditionOutcome.match(message.found("logging.path").items(config));
 			}
 			config = new RelaxedPropertyResolver(environment, "endpoints.logfile.")
 					.getProperty("external-file");
 			if (StringUtils.hasText(config)) {
-				return ConditionOutcome
-						.match("Found endpoints.logfile.external-file: " + config);
+				return ConditionOutcome.match(
+						message.found("endpoints.logfile.external-file").items(config));
 			}
-			return ConditionOutcome.noMatch("Found no log file configuration");
+			return ConditionOutcome.noMatch(message.didNotFind("logging file").atAll());
 		}
 
 	}

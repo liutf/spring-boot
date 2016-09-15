@@ -26,6 +26,7 @@ import org.springframework.session.data.redis.RedisFlushMode;
  *
  * @author Tommy Ludwig
  * @author Stephane Nicoll
+ * @author Vedran Pavic
  * @since 1.4.0
  */
 @ConfigurationProperties("spring.session")
@@ -103,10 +104,30 @@ public class SessionProperties {
 
 	public static class Jdbc {
 
+		private static final String DEFAULT_SCHEMA_LOCATION = "classpath:org/springframework/"
+				+ "session/jdbc/schema-@@platform@@.sql";
+
+		private static final String DEFAULT_TABLE_NAME = "SPRING_SESSION";
+
+		/**
+		 * Path to the SQL file to use to initialize the database schema.
+		 */
+		private String schema = DEFAULT_SCHEMA_LOCATION;
+
 		/**
 		 * Name of database table used to store sessions.
 		 */
-		private String tableName = "SPRING_SESSION";
+		private String tableName = DEFAULT_TABLE_NAME;
+
+		private final Initializer initializer = new Initializer();
+
+		public String getSchema() {
+			return this.schema;
+		}
+
+		public void setSchema(String schema) {
+			this.schema = schema;
+		}
 
 		public String getTableName() {
 			return this.tableName;
@@ -114,6 +135,36 @@ public class SessionProperties {
 
 		public void setTableName(String tableName) {
 			this.tableName = tableName;
+		}
+
+		public Initializer getInitializer() {
+			return this.initializer;
+		}
+
+		public class Initializer {
+
+			/**
+			 * Create the required session tables on startup if necessary. Enabled
+			 * automatically if the default table name is set or a custom schema is
+			 * configured.
+			 */
+			private Boolean enabled;
+
+			public boolean isEnabled() {
+				if (this.enabled != null) {
+					return this.enabled;
+				}
+				boolean defaultTableName = DEFAULT_TABLE_NAME
+						.equals(Jdbc.this.getTableName());
+				boolean customSchema = !DEFAULT_SCHEMA_LOCATION
+						.equals(Jdbc.this.getSchema());
+				return (defaultTableName || customSchema);
+			}
+
+			public void setEnabled(boolean enabled) {
+				this.enabled = enabled;
+			}
+
 		}
 
 	}
